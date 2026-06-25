@@ -145,6 +145,29 @@ async def collect_pipeline_outputs(
 # STEP 3 — Tính RAGAS metrics
 # ══════════════════════════════════════════════════════════════════════════════
 
+def _gemini_is_finished(result) -> bool:
+    """
+    Ragas 0.2.6 kiểm tra finish_reason == 'stop' (lowercase).
+    Gemini trả về 'STOP' (uppercase) → ragas luôn nhận False → LLMDidNotFinishException.
+    Parser này chuẩn hoá về lowercase trước khi so sánh.
+    """
+    from langchain_core.outputs import ChatGeneration
+    for g in result.flatten():
+        resp = g.generations[0][0]
+        # Ưu tiên generation_info
+        if resp.generation_info:
+            reason = resp.generation_info.get("finish_reason", "")
+            if reason:
+                return str(reason).upper() == "STOP"
+        # Fallback: response_metadata trên ChatGeneration
+        if isinstance(resp, ChatGeneration) and resp.message is not None:
+            meta = resp.message.response_metadata
+            reason = meta.get("finish_reason") or meta.get("stop_reason", "")
+            if reason:
+                return str(reason).upper() in ("STOP", "END_TURN")
+    return True  # không có info → giả sử đã xong
+
+
 def compute_ragas_metrics(
     questions: list[str],
     answers: list[str],
@@ -169,12 +192,14 @@ def compute_ragas_metrics(
         "ground_truth": ground_truths,
     })
 
+    # Truyền is_finished_parser để xử lý 'STOP' (uppercase) của Gemini
     gemini_llm = LangchainLLMWrapper(
         ChatGoogleGenerativeAI(
             model="gemini-2.5-flash",
             temperature=0,
             google_api_key=settings.GOOGLE_API_KEY,
-        )
+        ),
+        is_finished_parser=_gemini_is_finished,
     )
     gemini_embeddings = LangchainEmbeddingsWrapper(embeddings)
 
@@ -183,7 +208,7 @@ def compute_ragas_metrics(
         metrics=[faithfulness, answer_relevancy, context_precision, context_recall],
         llm=gemini_llm,
         embeddings=gemini_embeddings,
-        raise_exceptions=False,  # Tiếp tục dù 1 câu bị lỗi
+        raise_exceptions=False,
     )
     return result
 
