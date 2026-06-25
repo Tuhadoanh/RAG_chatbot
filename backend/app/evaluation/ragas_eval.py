@@ -236,15 +236,15 @@ def print_report(
     print(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("═" * W)
 
-    # ── Aggregate scores ──────────────────────────────────────────────────────
+    # ── Aggregate scores — dùng _repr_dict (mean của từng metric) ────────────
     print("\n  ĐIỂM TỔNG HỢP")
     print("  " + "─" * 68)
 
     agg_scores = {}
     for key in _TARGETS:
         try:
-            score = float(result[key])
-        except (KeyError, TypeError):
+            score = float(result._repr_dict[key])
+        except (KeyError, TypeError, ValueError):
             score = float("nan")
         agg_scores[key] = score
         target = _TARGETS[key]
@@ -270,12 +270,11 @@ def print_report(
         print(f"       Answer preview : {a[:100].replace(chr(10), ' ')}{'...' if len(a) > 100 else ''}")
 
         for key in _TARGETS:
-            val = row.get(key, float("nan"))
             try:
-                val_f = float(val)
+                val_f = float(row[key])
                 display = f"{val_f:.3f}"
                 indicator = "✓" if val_f >= _TARGETS[key] else "✗"
-            except (TypeError, ValueError):
+            except (KeyError, TypeError, ValueError):
                 display = " n/a"
                 indicator = "?"
             print(f"       {key:<22}: {display}  {indicator}")
@@ -351,7 +350,7 @@ async def persist_results(
                 "category":          dataset[i].get("category", ""),
                 "question":          questions[i],
                 "answer":            answers[i][:200],
-                "faithfulness":      _safe_float(row.get("faithfulness")),
+                "faithfulness":      _safe_float(row.get("faithfulness")),       # pandas Series.get() OK
                 "answer_relevancy":  _safe_float(row.get("answer_relevancy")),
                 "context_precision": _safe_float(row.get("context_precision")),
                 "context_recall":    _safe_float(row.get("context_recall")),
@@ -398,11 +397,13 @@ async def run_evaluation(quick: bool = False) -> dict:
     # Bước 5
     csv_path = await persist_results(result, questions, answers, contexts, ground_truths, dataset)
 
+    # _repr_dict chứa mean đã tính sẵn của từng metric
+    agg = result._repr_dict
     return {
-        "faithfulness":      _safe_float(result.get("faithfulness")),
-        "answer_relevancy":  _safe_float(result.get("answer_relevancy")),
-        "context_precision": _safe_float(result.get("context_precision")),
-        "context_recall":    _safe_float(result.get("context_recall")),
+        "faithfulness":      _safe_float(agg.get("faithfulness")),
+        "answer_relevancy":  _safe_float(agg.get("answer_relevancy")),
+        "context_precision": _safe_float(agg.get("context_precision")),
+        "context_recall":    _safe_float(agg.get("context_recall")),
         "csv_path":          str(csv_path),
         "n_samples":         len(dataset),
     }
