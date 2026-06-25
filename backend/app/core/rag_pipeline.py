@@ -125,6 +125,45 @@ class RAGPipeline:
         """Gọi HybridRetriever."""
         return self.retriever.retrieve(standalone_question, self.score_threshold)
 
+    async def ainvoke(self, question: str, chat_history: list) -> dict:
+        """Non-streaming version — dùng cho RAGAS evaluation.
+        Trả về: {"answer": str, "retrieved_docs": List[Document], "standalone_question": str}
+        """
+        lc_history = []
+        for msg in chat_history:
+            if msg["role"] == "human":
+                lc_history.append(HumanMessage(content=msg["content"]))
+            else:
+                lc_history.append(AIMessage(content=msg["content"]))
+
+        if not await self._is_on_topic(question, chat_history):
+            return {
+                "answer": OFF_TOPIC_REPLY,
+                "retrieved_docs": [],
+                "standalone_question": question,
+            }
+
+        standalone_q = self._get_standalone_question({
+            "question": question,
+            "chat_history": lc_history,
+        })
+
+        docs = self._retrieve(standalone_q)
+        context = format_docs(docs)
+
+        messages = self.prompt.format_messages(
+            context=context,
+            chat_history=lc_history,
+            question=question,
+        )
+        response = await self.llm.ainvoke(messages)
+
+        return {
+            "answer": response.content,
+            "retrieved_docs": docs,
+            "standalone_question": standalone_q,
+        }
+
     async def astream(self, question: str, chat_history: list):
         """
         Async generator stream từng token để SSE streaming về frontend.

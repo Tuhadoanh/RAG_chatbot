@@ -24,10 +24,11 @@ async def get_eval_stats() -> dict:
     pipeline = [
         {"$group": {
             "_id": None,
-            "avg_faithfulness": {"$avg": "$faithfulness"},
-            "avg_answer_relevance": {"$avg": "$answer_relevance"},
-            "avg_context_relevance": {"$avg": "$context_relevance"},
-            "count": {"$sum": 1},
+            "avg_faithfulness":      {"$avg": "$faithfulness"},
+            "avg_answer_relevancy":  {"$avg": "$answer_relevancy"},
+            "avg_context_precision": {"$avg": "$context_precision"},
+            "avg_context_recall":    {"$avg": "$context_recall"},
+            "total_samples":         {"$sum": 1},
         }}
     ]
     result = await db.eval_results.aggregate(pipeline).to_list(1)

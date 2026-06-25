@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .db.mysql import init_db
 from .db.mongodb import get_mongo_client
-from .api.routes import chat, sessions, ingest
+from .api.routes import chat, sessions, ingest, eval
 from .core.config import settings
 from .core.rag_pipeline import RAGPipeline
 from .core.retriever import HybridRetriever
@@ -55,3 +55,4 @@ app.add_middleware(
 app.include_router(chat.router, prefix="/api")
 app.include_router(sessions.router, prefix="/api")
 app.include_router(ingest.router, prefix="/api")
+app.include_router(eval.router, prefix="/api")

@@ -27,8 +27,9 @@ motor>=3.5.1               # MongoDB async driver
 pymongo>=4.8.0
 
 # Evaluation
-ragas>=0.1.21              # Faithfulness, Answer Relevance, Context Relevance
+ragas==0.2.6               # Pin: 0.4.x incompatible với langchain-community 0.4.x
 datasets>=2.21.0
+langchain-google-vertexai>=2.0.0  # Required by ragas 0.2.x for ChatVertexAI shim
 
 # Utilities
 tenacity>=8.5.0
